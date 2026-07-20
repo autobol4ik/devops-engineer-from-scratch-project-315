@@ -1,0 +1,146 @@
+---
+- name: Validate immutable application image tag
+  ansible.builtin.assert:
+    that:
+      - app_image_tag is match('^[0-9a-f]{40}$')
+    fail_msg: app_image_tag must be a full Git SHA produced by CI.
+
+- name: Create persistent application directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_uid }}"
+    group: "{{ app_gid }}"
+    mode: "0750"
+  loop:
+    - "{{ app_data_directory }}"
+    - "{{ app_log_directory }}"
+
+- name: Create private application network
+  community.docker.docker_network:
+    name: "{{ app_network_name }}"
+    state: present
+
+- name: Create PostgreSQL data volume
+  community.docker.docker_volume:
+    name: "{{ database_volume_name }}"
+    state: present
+
+- name: Authenticate in container registry
+  community.docker.docker_login:
+    registry_url: https://index.docker.io/v1/
+    username: "{{ registry_username }}"
+    password: "{{ registry_token }}"
+  when:
+    - registry_username | length > 0
+    - registry_token | length > 0
+  no_log: true
+
+- name: Pull application image
+  community.docker.docker_image:
+    name: "{{ app_image_repository }}"
+    tag: "{{ app_image_tag }}"
+    source: pull
+    force_source: "{{ app_image_tag == 'latest' }}"
+
+- name: Start PostgreSQL container
+  community.docker.docker_container:
+    name: "{{ database_container_name }}"
+    image: "{{ database_image }}"
+    state: healthy
+    healthy_wait_timeout: 120
+    pull: missing
+    restart_policy: unless-stopped
+    stop_timeout: 30
+    env:
+      POSTGRES_DB: "{{ database_name }}"
+      POSTGRES_USER: "{{ vault_database_username }}"
+      POSTGRES_PASSWORD: "{{ vault_database_password }}"
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready --username="${POSTGRES_USER}" --dbname="${POSTGRES_DB}"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks:
+      - name: "{{ app_network_name }}"
+    comparisons:
+      networks: strict
+    volumes:
+      - "{{ database_volume_name }}:/var/lib/postgresql/data"
+    memory: "{{ database_memory_limit }}"
+    pids_limit: "{{ database_pids_limit }}"
+    shm_size: 128m
+    log_driver: local
+    log_options:
+      max-size: 10m
+      max-file: "3"
+  no_log: true
+
+- name: Apply database migrations
+  community.docker.docker_container:
+    name: "{{ app_container_name }}-migration"
+    image: "{{ app_image_repository }}:{{ app_image_tag }}"
+    state: started
+    detach: false
+    cleanup: true
+    output_logs: true
+    command:
+      - --spring.main.web-application-type=none
+    env: >-
+      {{ application_environment | combine(migration_environment_overrides) }}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    networks:
+      - name: "{{ app_network_name }}"
+    comparisons:
+      networks: strict
+    volumes:
+      - "{{ app_log_directory }}:/var/log/hexlet-3"
+    cap_drop:
+      - ALL
+    security_opts:
+      - no-new-privileges:true
+  no_log: true
+  changed_when: false
+
+- name: Start application container
+  community.docker.docker_container:
+    name: "{{ app_container_name }}"
+    image: "{{ app_image_repository }}:{{ app_image_tag }}"
+    state: healthy
+    healthy_wait_timeout: 180
+    pull: never
+    restart_policy: unless-stopped
+    stop_timeout: 30
+    init: true
+    env: >-
+      {{ application_environment | combine(runtime_environment_overrides) }}
+    published_ports:
+      - "127.0.0.1:{{ app_port }}:8080"
+      - "127.0.0.1:{{ app_management_port }}:9090"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    networks:
+      - name: "{{ app_network_name }}"
+    comparisons:
+      networks: strict
+    volumes:
+      - "{{ app_data_directory }}:/tmp/bulletin-images"
+      - "{{ app_log_directory }}:/var/log/hexlet-3"
+    cap_drop:
+      - ALL
+    security_opts:
+      - no-new-privileges:true
+    memory: "{{ app_memory_limit }}"
+    pids_limit: "{{ app_pids_limit }}"
+    log_driver: local
+    log_options:
+      max-size: 10m
+      max-file: "3"
+  no_log: true

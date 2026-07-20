@@ -1,0 +1,8 @@
+---
+all:
+  children:
+    application_servers:
+      hosts:
+        hexlet-3-vm:
+          ansible_host: 203.0.113.10
+          ansible_user: ubuntu

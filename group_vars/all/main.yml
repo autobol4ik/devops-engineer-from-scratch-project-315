@@ -1,0 +1,90 @@
+---
+server_hostname: hexlet-3-vm
+app_domain: hexlet-3.duckdns.org
+certbot_admin_email: vladimir.autobol@gmail.com
+tls_enabled: true
+
+app_image_repository: >-
+  autobol4ik/devops-engineer-from-scratch-project-315
+app_image_tag: CHANGE_ME
+app_container_name: hexlet-3-app
+app_port: 8080
+app_management_port: 9090
+app_uid: 10001
+app_gid: 10001
+app_memory_limit: 768m
+app_pids_limit: 256
+app_network_name: hexlet-3-network
+
+app_data_directory: /var/lib/hexlet-3/uploads
+app_log_directory: /var/log/hexlet-3
+
+database_image: postgres:17-alpine
+database_container_name: hexlet-3-postgres
+database_name: bulletins
+database_volume_name: hexlet-3-postgres-data
+database_memory_limit: 512m
+database_pids_limit: 128
+
+ssh_port: 22
+firewall_http_ports:
+  - 80
+  - 443
+
+docker_users:
+  - "{{ ansible_user }}"
+docker_install_compose_plugin: true
+docker_daemon_options:
+  log-driver: local
+  log-opts:
+    max-size: 10m
+    max-file: "3"
+
+nginx_remove_default_vhost: true
+nginx_server_tokens: "off"
+nginx_client_max_body_size: 20m
+nginx_proxy_cache_path: >-
+  /var/cache/nginx/hexlet-3 levels=1:2 keys_zone=hexlet_3_cache:10m
+  max_size=256m inactive=1h use_temp_path=off
+
+certbot_install_method: package
+certbot_create_if_missing: true
+certbot_create_method: standalone
+certbot_create_standalone_stop_services:
+  - nginx
+certbot_auto_renew: true
+certbot_auto_renew_user: root
+certbot_auto_renew_hour: "3"
+certbot_auto_renew_minute: "17"
+certbot_auto_renew_options: "--quiet"
+certbot_certs:
+  - name: "{{ app_domain }}"
+    domains:
+      - "{{ app_domain }}"
+
+registry_username: "{{ vault_registry_username }}"
+registry_token: "{{ vault_registry_token }}"
+
+application_environment:
+  SPRING_DATASOURCE_URL: "{{ vault_database_url }}"
+  SPRING_DATASOURCE_USERNAME: "{{ vault_database_username }}"
+  SPRING_DATASOURCE_PASSWORD: "{{ vault_database_password }}"
+  STORAGE_S3_BUCKET: "{{ vault_s3_bucket }}"
+  STORAGE_S3_REGION: "{{ vault_s3_region }}"
+  STORAGE_S3_ENDPOINT: "{{ vault_s3_endpoint }}"
+  STORAGE_S3_ACCESSKEY: "{{ vault_s3_access_key }}"
+  STORAGE_S3_SECRETKEY: "{{ vault_s3_secret_key }}"
+  STORAGE_S3_CDNURL: "{{ vault_s3_cdn_url }}"
+  SERVER_FORWARD_HEADERS_STRATEGY: framework
+  MANAGEMENT_SERVER_PORT: "{{ app_management_port | string }}"
+  LOG_PATH: /var/log/hexlet-3
+  JAVA_TOOL_OPTIONS: >-
+    -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/urandom
+
+migration_environment_overrides:
+  SPRING_PROFILES_ACTIVE: prod,migration
+  SPRING_FLYWAY_ENABLED: "true"
+
+runtime_environment_overrides:
+  SPRING_PROFILES_ACTIVE: prod
+  SPRING_FLYWAY_ENABLED: "false"

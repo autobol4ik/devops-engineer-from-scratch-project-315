@@ -1,0 +1,71 @@
+---
+- name: Configure bulletin board server
+  hosts: application_servers
+  become: true
+  gather_facts: true
+  serial: 1
+
+  pre_tasks:
+    - name: Check supported operating system
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == "Debian"
+        fail_msg: This playbook supports Debian and Ubuntu hosts.
+      tags:
+        - always
+
+    - name: Set server hostname
+      ansible.builtin.hostname:
+        name: "{{ server_hostname }}"
+      tags:
+        - always
+
+    - name: Install packages required by Ansible modules
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - python3-docker
+          - python3-requests
+          - ufw
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      tags:
+        - always
+
+    - name: Create Nginx cache directory
+      ansible.builtin.file:
+        path: /var/cache/nginx/hexlet-3
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0750"
+      tags:
+        - nginx
+
+  roles:
+    - role: geerlingguy.docker
+      tags:
+        - prepare
+
+    - role: firewall
+      tags:
+        - prepare
+
+    - role: geerlingguy.nginx
+      tags:
+        - nginx
+
+    - role: geerlingguy.certbot
+      when: tls_enabled | bool
+      tags:
+        - tls
+
+    - role: application
+      tags:
+        - deploy
+
+    - role: reverse_proxy
+      tags:
+        - deploy
+        - nginx
