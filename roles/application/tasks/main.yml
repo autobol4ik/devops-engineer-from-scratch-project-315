@@ -26,22 +26,11 @@
     name: "{{ database_volume_name }}"
     state: present
 
-- name: Authenticate in container registry
-  community.docker.docker_login:
-    registry_url: https://index.docker.io/v1/
-    username: "{{ registry_username }}"
-    password: "{{ registry_token }}"
-  when:
-    - registry_username | length > 0
-    - registry_token | length > 0
-  no_log: true
-
 - name: Pull application image
   community.docker.docker_image:
     name: "{{ app_image_repository }}"
     tag: "{{ app_image_tag }}"
     source: pull
-    force_source: "{{ app_image_tag == 'latest' }}"
 
 - name: Start PostgreSQL container
   community.docker.docker_container:

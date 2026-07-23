@@ -5,7 +5,7 @@ certbot_admin_email: vladimir.autobol@gmail.com
 tls_enabled: true
 
 app_image_repository: >-
-  autobol4ik/devops-engineer-from-scratch-project-315
+  autobol4ik/hexlet-3-bulletin-board
 app_image_tag: CHANGE_ME
 app_container_name: hexlet-3-app
 app_port: 8080
@@ -61,9 +61,6 @@ certbot_certs:
   - name: "{{ app_domain }}"
     domains:
       - "{{ app_domain }}"
-
-registry_username: "{{ vault_registry_username }}"
-registry_token: "{{ vault_registry_token }}"
 
 application_environment:
   SPRING_DATASOURCE_URL: "{{ vault_database_url }}"
