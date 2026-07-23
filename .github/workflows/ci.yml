@@ -36,7 +36,12 @@ jobs:
           printf '%s\n' "$ref" | grep -Eq '^[0-9a-f]{40}$'
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
       - name: Check repository boundary and Ansible
-        run: make check
+        run: |
+          trap 'rm -f .vault-password' EXIT
+          cp group_vars/all/vault.yml.example group_vars/all/vault.yml
+          install -m 0600 /dev/null .vault-password
+          printf '%s\n' ci-validation-only > .vault-password
+          make check
 
   image:
     needs:
