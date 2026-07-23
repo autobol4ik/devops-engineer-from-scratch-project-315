@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-APP_SOURCE_REF := 1084ab0901498b577047e5716f27598eca5d5577
+APP_SOURCE_REF := 36d2fb85cfe95d343bad9ca6369afdfd21b83150
 ROLLBACK_IMAGE_REPOSITORY ?= autobol4ik/devops-engineer-from-scratch-project-315
 ANSIBLE_INVENTORY ?= inventory.yml
 ANSIBLE_PLAYBOOK := ansible-playbook -i $(ANSIBLE_INVENTORY) playbook.yml
